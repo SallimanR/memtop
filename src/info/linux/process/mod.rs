@@ -13,7 +13,6 @@ pub struct Process {
     pub pss: u64,
 }
 
-
 impl Process {
     pub fn get_name_by_pid(pid: u32) -> String {
         #[cfg(feature = "profile-with-tracy")]
@@ -24,8 +23,5 @@ impl Process {
             Ok(info) => info,
             Err(_) => "".to_owned(),
         }
-
-        // let content = fs::read_to_string(format!("/proc/{}/comm", pid)).ok()?;
-        // Some(content.trim().to_owned())
     }
 }
