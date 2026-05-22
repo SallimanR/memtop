@@ -3,12 +3,12 @@ use std::ops::Deref;
 use ratatui::widgets::TableState;
 
 #[derive(Debug, Default)]
-pub struct SelectableTable<C> {
+pub struct SelectableTableWidget<C> {
     pub items: C,
     pub state: TableState,
 }
 
-impl<C, T> SelectableTable<C>
+impl<C, T> SelectableTableWidget<C>
 where
     C: Deref<Target = Vec<T>>,
 {

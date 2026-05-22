@@ -8,12 +8,12 @@ use ratatui::{
 
 use crate::{
     info::linux::process::process_list::ProcessList,
-    tui::{panes::Pane, widgets::table::SelectableTable},
+    tui::{panes::Pane, widgets::selectable_table::SelectableTableWidget},
 };
 
 #[derive(Debug, Default)]
 pub struct ProcessListPane {
-    pub process_list: SelectableTable<ProcessList>,
+    pub process_list: SelectableTableWidget<ProcessList>,
 }
 
 impl ProcessListPane {
@@ -22,7 +22,7 @@ impl ProcessListPane {
         table_state.select_first();
         table_state.select_first_column();
         Self {
-            process_list: SelectableTable::new(ProcessList::new()),
+            process_list: SelectableTableWidget::new(ProcessList::new()),
         }
     }
     pub fn update(&mut self) {
