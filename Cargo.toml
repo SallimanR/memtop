@@ -1,0 +1,28 @@
+[package]
+name = "memtop"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+procfs = "0.18.0"
+ratatui = "0.30.0"
+rustix = {version="1.1.4", features = ["process"]}
+sysinfo = "0.39.2"
+tracy-client = {version="0.18.4", features = ["enable", "sampling", "code-transfer"]}
+
+[profile.release]
+debug=false
+opt-level = 3
+# panic = "unwind"
+lto = true
+codegen-units = 1
+strip = true
+# split-debuginfo = "unpacked"
+
+[profile.release-profile]
+inherits = "release"
+debug = true
+
+[features]
+default=[]
+profile-with-tracy = ["tracy-client/enable", "tracy-client/sampling", "tracy-client/code-transfer"]
