@@ -45,9 +45,9 @@ pub fn start_event_loop(
 
     let mut should_quit = false;
     let mut needs_redraw = true;
+    let poll_timeout = Duration::from_millis(16);
     while !should_quit {
-        // Poll for events with a short timeout
-        if event::poll(Duration::from_millis(16))?
+        if event::poll(poll_timeout)?
             && let Event::Key(key) = event::read()?
         {
             match key.code {
