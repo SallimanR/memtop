@@ -1,13 +1,23 @@
 use std::{fs, ops::Deref};
 
-use crate::info::linux::process::Process;
+use crate::info::linux::process;
 
 #[derive(Debug, Default)]
-pub struct ProcessList(pub Vec<Process>);
+pub struct ProcessInfoLine {
+    pub pid: u32,
+
+    pub name: String,
+
+    pub pss: u64,
+    pub rss: u64,
+}
+
+#[derive(Debug, Default)]
+pub struct ProcessList(pub Vec<ProcessInfoLine>);
 
 impl Deref for ProcessList {
-    type Target = Vec<Process>;
-    fn deref(&self) -> &Vec<Process> {
+    type Target = Vec<ProcessInfoLine>;
+    fn deref(&self) -> &Vec<ProcessInfoLine> {
         &self.0
     }
 }
@@ -41,20 +51,15 @@ impl ProcessList {
             let s = name.to_str()?;
             s.parse::<u32>().ok()
         }) {
-            let name = Process::get_name_by_pid(pid);
-            let (rss, pss) = Process::get_smaps_rollup_by_pid_buf(pid, &mut buf);
+            let name = process::proc_get_name_by_pid(pid);
+            let (rss, pss) = process::smaps_rollup::proc_get_smaps_rollup_by_pid(pid, &mut buf);
 
-            let process = Process {
+            let process = ProcessInfoLine {
                 pid,
                 name,
                 rss: rss.unwrap_or_default(),
                 pss: pss.unwrap_or_default(),
             };
-            // let process = Process {
-            //     pid,
-            //     name,
-            //     ..Default::default()
-            // };
 
             self.0.push(process);
         }
