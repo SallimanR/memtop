@@ -26,7 +26,7 @@ pub fn start_event_loop(
     let mut app = App::new();
     let mut system = sysinfo::System::new_all();
 
-    let (tx, rx) = mpsc::channel::<Update>();
+    let (sender, receiver) = mpsc::channel::<Update>();
     let update_period = Duration::from_millis(500);
     thread::spawn(move || {
         loop {
@@ -37,7 +37,7 @@ pub fn start_event_loop(
                 process_list,
             };
             thread::sleep(update_period);
-            if tx.send(result).is_err() {
+            if sender.send(result).is_err() {
                 break;
             }
         }
@@ -72,7 +72,7 @@ pub fn start_event_loop(
             }
         }
 
-        if let Ok(update) = rx.try_recv() {
+        if let Ok(update) = receiver.try_recv() {
             app.system_usage_info = update.system_usage_info;
             app.panes.process_list_pane.process_list.items = update.process_list;
             needs_redraw = true
