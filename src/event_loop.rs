@@ -87,11 +87,11 @@ pub fn start_event_loop(
                     needs_redraw = true;
                 }
                 KeyCode::Char('d') => {
-                    app.tabs.next();
+                    app.tabs.next_tab();
                     needs_redraw = true;
                 }
                 KeyCode::Char('a') => {
-                    app.tabs.previous();
+                    app.tabs.previous_tab();
                     needs_redraw = true;
                 }
                 KeyCode::Char('q') | KeyCode::Esc => should_quit = true,

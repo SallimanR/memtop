@@ -7,29 +7,60 @@ use ratatui::{
     text::Line,
 };
 
+pub const TAB_TITLES: [&'static str; 2] = ["Process List", "Process"];
+const TAB_COUNT: usize = TAB_TITLES.len();
+
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(usize)]
+pub enum Tabs {
+    #[default]
+    ProcessList,
+    Process,
+}
+
+impl From<usize> for Tabs {
+    fn from(v: usize) -> Self {
+        match v {
+            0 => Self::ProcessList,
+            1 => Self::Process,
+            _ => Self::default(),
+        }
+    }
+}
+
+impl Tabs {
+    pub fn next(self) -> Self {
+        let current = self as usize;
+        let next = (current + 1) % TAB_COUNT;
+        Tabs::from(next)
+    }
+
+    pub fn previous(self) -> Self {
+        let current = self as usize;
+        let prev = (current + TAB_COUNT - 1) % TAB_COUNT;
+        Tabs::from(prev)
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct TabsPane {
     pub titles: [&'static str; 2],
-    pub selected_tab: usize,
+    pub selected_tab: Tabs,
 }
 
 impl TabsPane {
-    pub fn next(&mut self) {
-        self.selected_tab = (self.selected_tab + 1) % self.titles.len()
+    pub fn next_tab(&mut self) {
+        self.selected_tab = self.selected_tab.next();
     }
-    pub fn previous(&mut self) {
-        if self.selected_tab > 0 {
-            self.selected_tab -= 1;
-        } else {
-            self.selected_tab = self.titles.len() - 1;
-        }
+    pub fn previous_tab(&mut self) {
+        self.selected_tab = self.selected_tab.previous();
     }
 }
 
 impl TabsPane {
     pub fn render(&self, frame: &mut Frame, area: Rect) {
         let tabs = ratatui::widgets::Tabs::new(self.titles.iter().map(|v| Line::from(*v)))
-            .select(self.selected_tab)
+            .select(self.selected_tab as usize)
             .style(Style::default().fg(Color::Cyan))
             .highlight_style(
                 Style::default()

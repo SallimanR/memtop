@@ -7,7 +7,10 @@ use ratatui::{
 
 use crate::{
     app::App,
-    tui::{panes::Pane, tabs},
+    tui::{
+        panes::Pane,
+        tabs::{self, Tabs},
+    },
 };
 
 pub fn render(app: &mut App, frame: &mut Frame) {
@@ -20,11 +23,10 @@ pub fn render(app: &mut App, frame: &mut Frame) {
 
     app.tabs.render(frame, chunks[1]);
     match app.tabs.selected_tab {
-        0 => {
+        Tabs::ProcessList => {
             tabs::process_list_tab::render_process_list_tab(app, frame, chunks[2]);
         }
-        1 => {}
-        _ => {}
+        Tabs::Process => {}
     }
 }
 

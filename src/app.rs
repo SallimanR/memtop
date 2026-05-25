@@ -1,7 +1,9 @@
 use crate::{
     event_loop::start_event_loop,
-    info::shared::system_usage_info::SystemUsageInfo,
-    tui::{panes::Panes, tabs::TabsPane},
+    tui::{
+        panes::Panes,
+        tabs::{Tabs, TabsPane},
+    },
 };
 
 #[derive(Debug, Default)]
@@ -16,9 +18,8 @@ impl App {
             panes: Panes::new(),
             tabs: TabsPane {
                 titles: ["Process List", "Process"],
-                selected_tab: 0,
+                selected_tab: Tabs::ProcessList,
             },
-            ..Default::default()
         }
     }
 }
