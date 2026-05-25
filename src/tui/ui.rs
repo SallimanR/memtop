@@ -1,43 +1,44 @@
+use std::rc::Rc;
+
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
-    style::{Color, Modifier, Style},
-    text::Line,
-    widgets::Tabs,
 };
 
-use crate::{app::App, tui::panes::Pane};
+use crate::{
+    app::App,
+    tui::{panes::Pane, tabs},
+};
 
 pub fn render(app: &mut App, frame: &mut Frame) {
     #[cfg(feature = "profile-with-tracy")]
     let _span = tracy_client::span!("ui::render");
 
-    let chunks = Layout::vertical([Constraint::Length(2), Constraint::Min(0)]).split(frame.area());
-    render_tabs_line(app, frame, chunks[0]);
+    let chunks = get_tui_layout(app, frame);
+
+    app.panes.system_usage_pane.render(frame, chunks[0]);
+
+    app.tabs.render(frame, chunks[1]);
     match app.tabs.selected_tab {
         0 => {
-            render_general_tab(app, frame, chunks[1]);
+            tabs::process_list_tab::render_process_list_tab(app, frame, chunks[2]);
         }
         1 => {}
         _ => {}
     }
 }
 
-fn render_tabs_line(app: &mut App, frame: &mut Frame, area: Rect) {
-    let tabs = Tabs::new(app.tabs.titles.iter().map(|v| Line::from(*v)))
-        .select(app.tabs.selected_tab)
-        .style(Style::default().fg(Color::Cyan))
-        .highlight_style(
-            Style::default()
-                .add_modifier(Modifier::BOLD)
-                .fg(Color::LightGreen),
-        );
-    frame.render_widget(tabs, area);
-}
+fn get_tui_layout(app: &mut App, frame: &mut Frame) -> Rc<[Rect]> {
+    let system_usage_pane_offset = if app.panes.system_usage_pane.needs_update {
+        3
+    } else {
+        0
+    };
 
-fn render_general_tab(app: &mut App, frame: &mut Frame, area: Rect) {
-    let chunks = Layout::vertical([Constraint::Length(3), Constraint::Min(1)]).split(area);
-
-    app.system_usage_info.render(frame, chunks[0]);
-    app.panes.process_list_pane.render(frame, chunks[1]);
+    Layout::vertical([
+        Constraint::Length(system_usage_pane_offset),
+        Constraint::Length(2),
+        Constraint::Percentage(90),
+    ])
+    .split(frame.area())
 }

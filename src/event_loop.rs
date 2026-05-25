@@ -51,6 +51,11 @@ pub fn start_event_loop(
             && let Event::Key(key) = event::read()?
         {
             match key.code {
+                KeyCode::Char('1') => {
+                    app.panes.system_usage_pane.needs_update =
+                        !app.panes.system_usage_pane.needs_update;
+                    needs_redraw = true;
+                }
                 KeyCode::Char('j') | KeyCode::Down => {
                     app.panes.process_list_pane.process_list.select_next(1);
                     needs_redraw = true;
@@ -73,7 +78,7 @@ pub fn start_event_loop(
         }
 
         if let Ok(update) = receiver.try_recv() {
-            app.system_usage_info = update.system_usage_info;
+            app.panes.system_usage_pane.system_usage_info = update.system_usage_info;
             app.panes.process_list_pane.process_list.items = update.process_list;
             needs_redraw = true
         }
