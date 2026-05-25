@@ -30,12 +30,12 @@ impl ProcessList {
     }
 
     pub fn update(&mut self) {
-        self.update_with_files();
+        self.build_process_list();
     }
 
-    fn update_with_files(&mut self) {
+    fn build_process_list(&mut self) {
         #[cfg(feature = "profile-with-tracy")]
-        let _span = tracy_client::span!("ProcessList::update_with_files");
+        let _span = tracy_client::span!("ProcessList::build_process_list");
 
         self.0.clear();
 
