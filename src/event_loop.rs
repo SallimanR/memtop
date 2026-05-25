@@ -1,4 +1,13 @@
-use std::{io::Stdout, sync::mpsc, thread, time::Duration};
+use std::{
+    io::Stdout,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+        mpsc,
+    },
+    thread,
+    time::Duration,
+};
 
 use ratatui::{
     Terminal,
@@ -27,7 +36,8 @@ pub fn start_event_loop(
     let mut system = sysinfo::System::new_all();
 
     let (sender, receiver) = mpsc::channel::<Update>();
-    let update_period = Duration::from_millis(500);
+    let update_period_ms = Arc::new(AtomicU64::new(500));
+    let update_period_ms_thread = update_period_ms.clone();
     thread::spawn(move || {
         loop {
             let mut process_list = ProcessList::new();
@@ -36,7 +46,9 @@ pub fn start_event_loop(
                 system_usage_info: SystemUsageInfo::update(&mut system),
                 process_list,
             };
-            thread::sleep(update_period);
+
+            let sleep_ms = update_period_ms_thread.load(Ordering::Relaxed);
+            thread::sleep(Duration::from_millis(sleep_ms));
             if sender.send(result).is_err() {
                 break;
             }
@@ -51,6 +63,16 @@ pub fn start_event_loop(
             && let Event::Key(key) = event::read()?
         {
             match key.code {
+                KeyCode::Char('+') => {
+                    let current = update_period_ms.load(Ordering::Relaxed);
+                    let new = (current + 100).min(5000);
+                    update_period_ms.store(new, Ordering::Relaxed);
+                }
+                KeyCode::Char('-') => {
+                    let current = update_period_ms.load(Ordering::Relaxed);
+                    let new = current.saturating_sub(100).max(100);
+                    update_period_ms.store(new, Ordering::Relaxed);
+                }
                 KeyCode::Char('1') => {
                     app.panes.system_usage_pane.needs_update =
                         !app.panes.system_usage_pane.needs_update;
