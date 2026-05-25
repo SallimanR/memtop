@@ -2,7 +2,7 @@ use crate::{
     event_loop::start_event_loop,
     tui::{
         panes::Panes,
-        tabs::{Tabs, TabsPane},
+        tabs::{TAB_TITLES, Tabs, TabsPane},
     },
 };
 
@@ -17,7 +17,7 @@ impl App {
         Self {
             panes: Panes::new(),
             tabs: TabsPane {
-                titles: ["Process List", "Process"],
+                titles: TAB_TITLES,
                 selected_tab: Tabs::ProcessList,
             },
         }

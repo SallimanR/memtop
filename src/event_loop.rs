@@ -19,13 +19,13 @@ use crate::{
     app::App,
     info::{
         linux::process::process_list::ProcessList,
-        shared::system_usage_info::{SystemUsageInfo, SystemUsageInfoFunctionality},
+        shared::system_usage::{SystemUsage, SystemUsageFunctionality},
     },
     tui,
 };
 
 pub struct Update {
-    pub system_usage_info: SystemUsageInfo,
+    pub system_usage_info: SystemUsage,
     pub process_list: ProcessList,
 }
 
@@ -43,7 +43,7 @@ pub fn start_event_loop(
             let mut process_list = ProcessList::new();
             process_list.update();
             let result = Update {
-                system_usage_info: SystemUsageInfo::update(&mut system),
+                system_usage_info: SystemUsage::update(&mut system),
                 process_list,
             };
 

@@ -4,7 +4,7 @@ pub mod system_usage_pane;
 use ratatui::{Frame, layout::Rect};
 
 use crate::{
-    info::shared::system_usage_info::SystemUsageInfo,
+    info::shared::system_usage::SystemUsage,
     tui::panes::{process_list_pane::ProcessListPane, system_usage_pane::SystemUsagePane},
 };
 
@@ -18,7 +18,10 @@ impl Panes {
     pub fn new() -> Self {
         Self {
             process_list_pane: ProcessListPane::new(),
-            system_usage_pane: SystemUsagePane::default(),
+            system_usage_pane: SystemUsagePane {
+                needs_update: true,
+                ..Default::default()
+            },
         }
     }
 }
