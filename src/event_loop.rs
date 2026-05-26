@@ -47,11 +47,11 @@ pub fn start_event_loop(
                 process_list,
             };
 
-            let sleep_ms = update_period_ms_thread.load(Ordering::Relaxed);
-            thread::sleep(Duration::from_millis(sleep_ms));
             if sender.send(result).is_err() {
                 break;
             }
+            let sleep_ms = update_period_ms_thread.load(Ordering::Relaxed);
+            thread::sleep(Duration::from_millis(sleep_ms));
         }
     });
 

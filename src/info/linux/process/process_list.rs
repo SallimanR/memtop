@@ -1,4 +1,4 @@
-use std::{fs, ops::Deref};
+use std::{error::Error, fs, ops::Deref};
 
 use crate::info::linux::process;
 
@@ -24,26 +24,20 @@ impl Deref for ProcessList {
 
 impl ProcessList {
     pub fn new() -> Self {
-        let mut s = Self(Vec::new());
-        s.update();
-        s
+        Self(Vec::new())
     }
 
-    pub fn update(&mut self) {
-        self.build_process_list();
+    pub fn update(&mut self) -> Option<()> {
+        self.build_process_list()
     }
 
-    fn build_process_list(&mut self) {
+    fn build_process_list(&mut self) -> Option<()> {
         #[cfg(feature = "profile-with-tracy")]
         let _span = tracy_client::span!("ProcessList::build_process_list");
 
         self.0.clear();
 
-        let files = match fs::read_dir("/proc") {
-            Ok(files) => files,
-            Err(_) => return,
-        };
-
+        let files = fs::read_dir("/proc").ok()?;
         let mut buf = [0u8; 102400];
 
         for pid in files.flatten().filter_map(|entry| {
@@ -63,6 +57,7 @@ impl ProcessList {
 
             self.0.push(process);
         }
+        None
     }
 }
 
@@ -73,7 +68,7 @@ mod tests {
     #[test]
     fn test_update() {
         let mut process_list = ProcessList::new();
-        process_list.update();
+        assert_eq!(process_list.update(), None);
         assert!(!process_list.0.is_empty());
 
         for process in &process_list.0 {
