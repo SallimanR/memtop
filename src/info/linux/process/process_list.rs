@@ -1,4 +1,4 @@
-use std::{fs, ops::Deref};
+use std::ops::Deref;
 
 use crate::info::linux::process;
 
@@ -37,14 +37,11 @@ impl ProcessList {
 
         self.0.clear();
 
-        let files = fs::read_dir("/proc").ok()?;
         let mut buf = [0u8; 102400];
 
-        for pid in files.flatten().filter_map(|entry| {
-            let name = entry.file_name();
-            let s = name.to_str()?;
-            s.parse::<u32>().ok()
-        }) {
+        let pids = process::get_pids_of_all_processes()?;
+
+        for pid in pids {
             let name = process::proc_get_name_by_pid(pid);
             let (rss, pss) = process::proc_get_smaps_rollup_by_pid(pid, &mut buf);
 

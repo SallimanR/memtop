@@ -2,18 +2,61 @@ pub mod process_list;
 pub mod process_tree;
 
 use std::{
-    fs::{self, File},
+    fs::{self, DirEntry, File, ReadDir},
     io::Read,
+    iter::{FilterMap, Flatten},
 };
 
 #[derive(Debug, Default)]
-pub struct Process {
+pub struct ProcessFullInfo {
+    /* IDs */
     pub pid: u32,
+    pub ppid: u32,
+    pub tgid: u32,
 
     pub name: String,
 
-    pub rss: u64,
+    /* Memory */
     pub pss: u64,
+    pub rss: u64,
+}
+
+pub fn get_pids_of_all_processes()
+-> Option<FilterMap<Flatten<ReadDir>, impl FnMut(DirEntry) -> Option<u32>>> {
+    let files = fs::read_dir("/proc").ok()?;
+    Some(files.flatten().filter_map(|entry| {
+        let name = entry.file_name();
+        let s = name.to_str()?;
+        s.parse::<u32>().ok()
+    }))
+}
+
+pub fn proc_get_ppid(pid: u32, buf: &mut [u8; 512]) -> Option<u32> {
+    let mut f = File::open(format!("/proc/{}/stat", pid)).ok()?;
+
+    let n = f.read(&mut buf[..]).ok()?;
+    let content = str::from_utf8(&buf[..n]).ok()?;
+
+    // content = "/proc/{pid}/stat": pid (comm) state ppid ...
+    let after_comm = content.rsplit(')').next()?; // read content after ")"
+    let mut fields = after_comm.split_whitespace();
+    fields.next(); // skip state
+    let ppid_str = fields.next()?;
+    ppid_str.parse().ok()
+}
+
+pub fn proc_get_tgid(pid: u32, buf: &mut [u8; 512]) -> Option<u32> {
+    let mut f = File::open(format!("/proc/{}/status", pid)).ok()?;
+
+    let n = f.read(&mut buf[..]).ok()?;
+    let content = str::from_utf8(&buf[..n]).ok()?;
+
+    for line in content.lines() {
+        if line.starts_with("Tgid:") {
+            return line.split_whitespace().nth(1)?.parse().ok();
+        }
+    }
+    None
 }
 
 pub fn proc_get_name_by_pid(pid: u32) -> String {

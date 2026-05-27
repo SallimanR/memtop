@@ -1,7 +1,6 @@
 use std::{
     collections::HashMap,
-    fs::{self, File},
-    io::Read,
+    fs::{self},
     ops::Deref,
 };
 
@@ -47,18 +46,14 @@ impl ProcessTree {
 
         self.0.clear();
 
-        let files = fs::read_dir("/proc").ok()?;
-
         let mut procs: Vec<ProcessData> = Vec::new();
         let mut buf = [0u8; 512];
 
-        for pid in files.flatten().filter_map(|entry| {
-            let name = entry.file_name();
-            let s = name.to_str()?;
-            s.parse::<u32>().ok()
-        }) {
-            let ppid = get_ppid(pid, &mut buf)?;
-            let tgid = get_tgid(pid, &mut buf)?;
+        let pids = process::get_pids_of_all_processes()?;
+
+        for pid in pids {
+            let ppid = process::proc_get_ppid(pid, &mut buf)?;
+            let tgid = process::proc_get_tgid(pid, &mut buf)?;
             let name = process::proc_get_name_by_pid(pid);
 
             let process = ProcessData {
@@ -123,34 +118,6 @@ impl ProcessTree {
             recurse(&self.0, root_idx, 0);
         }
     }
-}
-
-fn get_ppid(pid: u32, buf: &mut [u8; 512]) -> Option<u32> {
-    let mut f = File::open(format!("/proc/{}/stat", pid)).ok()?;
-
-    let n = f.read(&mut buf[..]).ok()?;
-    let content = str::from_utf8(&buf[..n]).ok()?;
-
-    // content = "/proc/{pid}/stat": pid (comm) state ppid ...
-    let after_comm = content.rsplit(')').next()?; // read content after ")"
-    let mut fields = after_comm.split_whitespace();
-    fields.next(); // skip state
-    let ppid_str = fields.next()?;
-    ppid_str.parse().ok()
-}
-
-fn get_tgid(pid: u32, buf: &mut [u8; 512]) -> Option<u32> {
-    let mut f = File::open(format!("/proc/{}/status", pid)).ok()?;
-
-    let n = f.read(&mut buf[..]).ok()?;
-    let content = str::from_utf8(&buf[..n]).ok()?;
-
-    for line in content.lines() {
-        if line.starts_with("Tgid:") {
-            return line.split_whitespace().nth(1)?.parse().ok();
-        }
-    }
-    None
 }
 
 #[cfg(test)]
