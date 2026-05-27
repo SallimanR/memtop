@@ -1,4 +1,4 @@
-use std::{error::Error, fs, ops::Deref};
+use std::{fs, ops::Deref};
 
 use crate::info::linux::process;
 
@@ -46,7 +46,7 @@ impl ProcessList {
             s.parse::<u32>().ok()
         }) {
             let name = process::proc_get_name_by_pid(pid);
-            let (rss, pss) = process::smaps_rollup::proc_get_smaps_rollup_by_pid(pid, &mut buf);
+            let (rss, pss) = process::proc_get_smaps_rollup_by_pid(pid, &mut buf);
 
             let process = ProcessInfoLine {
                 pid,
