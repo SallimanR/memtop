@@ -12,7 +12,7 @@ use std::{
 use ratatui::{
     Terminal,
     backend::CrosstermBackend,
-    crossterm::event::{self, Event, KeyCode},
+    crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
 };
 
 use crate::{
@@ -55,70 +55,7 @@ pub fn start_event_loop(
         if event::poll(input_poll_timeout)?
             && let Event::Key(key) = event::read()?
         {
-            match key.code {
-                KeyCode::Char('+') => {
-                    let current = update_period_ms.load(Ordering::Relaxed);
-                    let new = (current + 100).min(5000);
-                    update_period_ms.store(new, Ordering::Relaxed);
-                }
-                KeyCode::Char('-') => {
-                    let current = update_period_ms.load(Ordering::Relaxed);
-                    let new = current.saturating_sub(100).max(100);
-                    update_period_ms.store(new, Ordering::Relaxed);
-                }
-                KeyCode::Char('1') => {
-                    app.panes.system_usage_pane.needs_update =
-                        !app.panes.system_usage_pane.needs_update;
-                    needs_redraw = true;
-                }
-                KeyCode::Char('c') => {
-                    match app.panes.processes {
-                        ProcessListOrTree::List(_) => {
-                            let mut p = ProcessTreePane::new();
-                            p.process_tree.items.update();
-                            app.panes.processes = ProcessListOrTree::Tree(p);
-                        }
-                        ProcessListOrTree::Tree(_) => {
-                            let mut p = ProcessListPane::new();
-                            p.update();
-                            app.panes.processes = ProcessListOrTree::List(p);
-                        }
-                    }
-                    needs_redraw = true;
-                }
-                KeyCode::Char('j') | KeyCode::Down => {
-                    match &mut app.panes.processes {
-                        ProcessListOrTree::List(processes) => {
-                            processes.process_list.select_next(1);
-                        }
-                        ProcessListOrTree::Tree(processes) => {
-                            processes.process_tree.select_next(1);
-                        }
-                    }
-                    needs_redraw = true;
-                }
-                KeyCode::Char('k') | KeyCode::Up => {
-                    match &mut app.panes.processes {
-                        ProcessListOrTree::List(processes) => {
-                            processes.process_list.select_previous(1);
-                        }
-                        ProcessListOrTree::Tree(processes) => {
-                            processes.process_tree.select_previous(1);
-                        }
-                    }
-                    needs_redraw = true;
-                }
-                KeyCode::Char('d') => {
-                    app.tabs.next_tab();
-                    needs_redraw = true;
-                }
-                KeyCode::Char('a') => {
-                    app.tabs.previous_tab();
-                    needs_redraw = true;
-                }
-                KeyCode::Char('q') | KeyCode::Esc => should_quit = true,
-                _ => {}
-            }
+            (needs_redraw, should_quit) = handle_input(key, &mut app, &update_period_ms);
         }
 
         if let Ok(update) = receiver.try_recv() {
@@ -142,6 +79,106 @@ pub fn start_event_loop(
     }
 
     Ok(())
+}
+
+#[inline]
+fn handle_input(key: KeyEvent, app: &mut App, update_period_ms: &Arc<AtomicU64>) -> (bool, bool) {
+    let mut needs_redraw = false;
+    let mut should_quit = false;
+
+    match key.modifiers {
+        KeyModifiers::CONTROL => match key.code {
+            KeyCode::Char('d') | KeyCode::Down => {
+                match &mut app.panes.processes {
+                    ProcessListOrTree::List(processes) => {
+                        processes.process_list.select_next(20);
+                    }
+                    ProcessListOrTree::Tree(processes) => {
+                        processes.process_tree.select_next(20);
+                    }
+                }
+                needs_redraw = true;
+            }
+            KeyCode::Char('u') | KeyCode::Up => {
+                match &mut app.panes.processes {
+                    ProcessListOrTree::List(processes) => {
+                        processes.process_list.select_previous(20);
+                    }
+                    ProcessListOrTree::Tree(processes) => {
+                        processes.process_tree.select_previous(20);
+                    }
+                }
+                needs_redraw = true;
+            }
+            _ => {}
+        },
+        KeyModifiers::NONE => match key.code {
+            KeyCode::Char('+') => {
+                let current = update_period_ms.load(Ordering::Relaxed);
+                let new = (current + 100).min(5000);
+                update_period_ms.store(new, Ordering::Relaxed);
+            }
+            KeyCode::Char('-') => {
+                let current = update_period_ms.load(Ordering::Relaxed);
+                let new = current.saturating_sub(100).max(100);
+                update_period_ms.store(new, Ordering::Relaxed);
+            }
+            KeyCode::Char('1') => {
+                app.panes.system_usage_pane.needs_update =
+                    !app.panes.system_usage_pane.needs_update;
+                needs_redraw = true;
+            }
+            KeyCode::Char('c') => {
+                match app.panes.processes {
+                    ProcessListOrTree::List(_) => {
+                        let mut p = ProcessTreePane::new();
+                        p.process_tree.items.update();
+                        app.panes.processes = ProcessListOrTree::Tree(p);
+                    }
+                    ProcessListOrTree::Tree(_) => {
+                        let mut p = ProcessListPane::new();
+                        p.update();
+                        app.panes.processes = ProcessListOrTree::List(p);
+                    }
+                }
+                needs_redraw = true;
+            }
+            KeyCode::Char('j') | KeyCode::Down => {
+                match &mut app.panes.processes {
+                    ProcessListOrTree::List(processes) => {
+                        processes.process_list.select_next(1);
+                    }
+                    ProcessListOrTree::Tree(processes) => {
+                        processes.process_tree.select_next(1);
+                    }
+                }
+                needs_redraw = true;
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                match &mut app.panes.processes {
+                    ProcessListOrTree::List(processes) => {
+                        processes.process_list.select_previous(1);
+                    }
+                    ProcessListOrTree::Tree(processes) => {
+                        processes.process_tree.select_previous(1);
+                    }
+                }
+                needs_redraw = true;
+            }
+            KeyCode::Char('d') => {
+                app.tabs.next_tab();
+                needs_redraw = true;
+            }
+            KeyCode::Char('a') => {
+                app.tabs.previous_tab();
+                needs_redraw = true;
+            }
+            KeyCode::Char('q') | KeyCode::Esc => should_quit = true,
+            _ => {}
+        },
+        _ => {}
+    }
+    (needs_redraw, should_quit)
 }
 
 fn crate_update_info_thread(
