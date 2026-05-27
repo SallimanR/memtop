@@ -1,4 +1,5 @@
 pub mod process_list;
+pub mod process_tree;
 pub mod smaps_rollup;
 
 use std::fs;

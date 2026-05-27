@@ -3,9 +3,9 @@ use std::{
     sync::{
         Arc,
         atomic::{AtomicU64, Ordering},
-        mpsc,
+        mpsc::{self, Sender},
     },
-    thread,
+    thread::{self, JoinHandle},
     time::Duration,
 };
 
@@ -18,15 +18,22 @@ use ratatui::{
 use crate::{
     app::App,
     info::{
-        linux::process::process_list::ProcessList,
+        linux::process::{process_list::ProcessList, process_tree::ProcessTree},
         shared::system_usage::{SystemUsage, SystemUsageFunctionality},
     },
-    tui,
+    tui::{
+        self,
+        panes::{
+            ProcessListOrTree, process_list_pane::ProcessListPane,
+            process_tree_pane::ProcessTreePane,
+        },
+    },
 };
 
 pub struct Update {
     pub system_usage_info: SystemUsage,
     pub process_list: ProcessList,
+    pub process_tree: ProcessTree,
 }
 
 pub fn start_event_loop(
@@ -42,9 +49,12 @@ pub fn start_event_loop(
         loop {
             let mut process_list = ProcessList::new();
             process_list.update();
+            let mut process_tree = ProcessTree::new();
+            process_tree.update();
             let result = Update {
                 system_usage_info: SystemUsage::update(&mut system),
                 process_list,
+                process_tree,
             };
 
             if sender.send(result).is_err() {
@@ -78,12 +88,41 @@ pub fn start_event_loop(
                         !app.panes.system_usage_pane.needs_update;
                     needs_redraw = true;
                 }
+                KeyCode::Char('c') => {
+                    match app.panes.processes {
+                        ProcessListOrTree::List(_) => {
+                            let mut p = ProcessTreePane::new();
+                            p.process_tree.items.update();
+                            app.panes.processes = ProcessListOrTree::Tree(p);
+                        }
+                        ProcessListOrTree::Tree(_) => {
+                            let mut p = ProcessListPane::new();
+                            p.update();
+                            app.panes.processes = ProcessListOrTree::List(p);
+                        }
+                    }
+                    needs_redraw = true;
+                }
                 KeyCode::Char('j') | KeyCode::Down => {
-                    app.panes.process_list_pane.process_list.select_next(1);
+                    match &mut app.panes.processes {
+                        ProcessListOrTree::List(processes) => {
+                            processes.process_list.select_next(1);
+                        }
+                        ProcessListOrTree::Tree(processes) => {
+                            processes.process_tree.select_next(1);
+                        }
+                    }
                     needs_redraw = true;
                 }
                 KeyCode::Char('k') | KeyCode::Up => {
-                    app.panes.process_list_pane.process_list.select_previous(1);
+                    match &mut app.panes.processes {
+                        ProcessListOrTree::List(processes) => {
+                            processes.process_list.select_previous(1);
+                        }
+                        ProcessListOrTree::Tree(processes) => {
+                            processes.process_tree.select_previous(1);
+                        }
+                    }
                     needs_redraw = true;
                 }
                 KeyCode::Char('d') => {
@@ -101,7 +140,15 @@ pub fn start_event_loop(
 
         if let Ok(update) = receiver.try_recv() {
             app.panes.system_usage_pane.system_usage_info = update.system_usage_info;
-            app.panes.process_list_pane.process_list.items = update.process_list;
+            match &mut app.panes.processes {
+                ProcessListOrTree::List(processes) => {
+                    processes.process_list.items = update.process_list;
+                }
+                ProcessListOrTree::Tree(processes) => {
+                    processes.process_tree.items = update.process_tree
+                }
+            }
+
             needs_redraw = true
         }
 
