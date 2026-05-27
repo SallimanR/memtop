@@ -30,7 +30,7 @@ use crate::{
     },
 };
 
-pub struct Update {
+pub struct UpdateInfo {
     pub system_usage_info: SystemUsage,
     pub process_list: ProcessList,
     pub process_tree: ProcessTree,
@@ -40,30 +40,13 @@ pub fn start_event_loop(
     terminal: &mut Terminal<CrosstermBackend<Stdout>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut app = App::new();
-    let mut system = sysinfo::System::new_all();
 
-    let (sender, receiver) = mpsc::channel::<Update>();
     let update_period_ms = Arc::new(AtomicU64::new(500));
-    let update_period_ms_thread = update_period_ms.clone();
-    thread::spawn(move || {
-        loop {
-            let mut process_list = ProcessList::new();
-            process_list.update();
-            let mut process_tree = ProcessTree::new();
-            process_tree.update();
-            let result = Update {
-                system_usage_info: SystemUsage::update(&mut system),
-                process_list,
-                process_tree,
-            };
 
-            if sender.send(result).is_err() {
-                break;
-            }
-            let sleep_ms = update_period_ms_thread.load(Ordering::Relaxed);
-            thread::sleep(Duration::from_millis(sleep_ms));
-        }
-    });
+    let (sender, receiver) = mpsc::channel::<UpdateInfo>();
+
+    let update_period_ms_thread = update_period_ms.clone();
+    let _update_info_thread = crate_update_info_thread(sender, update_period_ms_thread);
 
     let mut should_quit = false;
     let mut needs_redraw = true;
@@ -159,4 +142,30 @@ pub fn start_event_loop(
     }
 
     Ok(())
+}
+
+fn crate_update_info_thread(
+    sender: Sender<UpdateInfo>,
+    update_period_ms: Arc<AtomicU64>,
+) -> JoinHandle<()> {
+    thread::spawn(move || {
+        let mut system = sysinfo::System::new_all();
+        loop {
+            let mut process_list = ProcessList::new();
+            process_list.update();
+            let mut process_tree = ProcessTree::new();
+            process_tree.update();
+            let result = UpdateInfo {
+                system_usage_info: SystemUsage::update(&mut system),
+                process_list,
+                process_tree,
+            };
+
+            if sender.send(result).is_err() {
+                break;
+            }
+            let sleep_ms = update_period_ms.load(Ordering::Relaxed);
+            thread::sleep(Duration::from_millis(sleep_ms));
+        }
+    })
 }
