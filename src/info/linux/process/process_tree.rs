@@ -1,8 +1,4 @@
-use std::{
-    collections::HashMap,
-    fs::{self},
-    ops::Deref,
-};
+use std::{collections::HashMap, ops::Deref};
 
 use crate::info::linux::process;
 

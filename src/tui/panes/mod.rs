@@ -4,15 +4,9 @@ pub mod system_usage_pane;
 
 use ratatui::{Frame, layout::Rect};
 
-use crate::{
-    info::{linux::process::process_tree::ProcessTree, shared::system_usage::SystemUsage},
-    tui::{
-        panes::{
-            process_list_pane::ProcessListPane, process_tree_pane::ProcessTreePane,
-            system_usage_pane::SystemUsagePane,
-        },
-        widgets::selectable_table::SelectableTableWidget,
-    },
+use crate::tui::panes::{
+    process_list_pane::ProcessListPane, process_tree_pane::ProcessTreePane,
+    system_usage_pane::SystemUsagePane,
 };
 
 #[derive(Debug, Default)]
