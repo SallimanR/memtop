@@ -1,6 +1,6 @@
 use std::{collections::HashMap, ops::Deref};
 
-use crate::info::linux::process::{self, ProcessType, is_kernel_thread};
+use crate::info::linux::process::{self, ProcessType};
 
 #[derive(Debug, Default)]
 pub struct ProcessData {
@@ -50,20 +50,18 @@ impl ProcessTree {
         let pids = process::get_pids_of_all_processes()?;
 
         for pid in pids {
-            let (ppid, flags) = process::proc_get_ppid_and_flags(pid, &mut buf)?;
-            let name = process::proc_get_name(pid);
+            let proc_stat = process::proc_get_stat(pid, &mut buf)?;
             let tgid = process::proc_get_tgid(pid, &mut buf)?;
 
-            let is_kernel = is_kernel_thread(flags);
-            let process_type = match is_kernel {
+            let process_type = match proc_stat.is_kernel_thread {
                 true => ProcessType::Kernel,
                 false => ProcessType::Regular,
             };
             let process = ProcessData {
                 pid,
-                ppid,
+                ppid: proc_stat.ppid,
                 tgid,
-                name,
+                name: proc_stat.comm,
                 process_type,
             };
             procs.push(process);
@@ -78,7 +76,7 @@ impl ProcessTree {
 
                 let process = ProcessData {
                     pid: thread_id,
-                    ppid,
+                    ppid: proc_stat.ppid,
                     tgid,
                     process_type: ProcessType::Thread,
                     name,

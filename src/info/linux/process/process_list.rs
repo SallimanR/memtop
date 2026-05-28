@@ -44,7 +44,7 @@ impl ProcessList {
         for pid in pids {
             let threads_ids = process::proc_get_threads_ids(pid)?;
             for thread_id in threads_ids {
-                let name = process::proc_get_name(thread_id);
+                let name = process::thread_get_name(pid, thread_id);
                 // let (rss, pss) = process::proc_get_smaps_rollup_by_pid(thread_id, &mut buf);
 
                 let process = ProcessInfoLine {

@@ -3,7 +3,7 @@ pub mod process_tree;
 
 use std::{
     fs::{self, DirEntry, File, ReadDir},
-    io::Read,
+    io::{self, Read},
     iter::{FilterMap, Flatten},
 };
 
@@ -50,18 +50,14 @@ pub fn proc_get_threads_ids(
     }))
 }
 
-pub fn proc_get_ppid_and_flags(pid: u32, buf: &mut [u8; 512]) -> Option<(u32, u32)> {
+pub fn proc_get_stat(pid: u32, buf: &mut [u8; 512]) -> Option<ProcessStat> {
     let file_path = format!("/proc/{}/stat", pid);
-    file_get_ppid_and_flags(file_path, buf)
+    file_get_stat(file_path, buf)
 }
 
-pub fn thread_get_ppid_and_flags(
-    pid: u32,
-    thread_id: u32,
-    buf: &mut [u8; 512],
-) -> Option<(u32, u32)> {
+pub fn thread_get_stat(pid: u32, thread_id: u32, buf: &mut [u8; 512]) -> Option<ProcessStat> {
     let file_path = format!("/proc/{}/task/{}/stat", pid, thread_id);
-    file_get_ppid_and_flags(file_path, buf)
+    file_get_stat(file_path, buf)
 }
 
 pub fn proc_get_tgid(pid: u32, buf: &mut [u8; 512]) -> Option<u32> {
@@ -84,25 +80,106 @@ pub fn thread_get_name(pid: u32, thread_id: u32) -> String {
     file_get_name(file_path)
 }
 
-pub fn file_get_ppid_and_flags(file_path: String, buf: &mut [u8; 512]) -> Option<(u32, u32)> {
+/// A wrapper around the data in `/proc/<PID>/stat`. For documentation, see:
+/// - <https://manpages.ubuntu.com/manpages/noble/man5/proc_pid_stat.5.html>
+/// - <https://man7.org/linux/man-pages/man5/proc_pid_status.5.html>
+///
+/// Note this does not necessarily get all fields, only the ones we use
+pub(crate) struct ProcessStat {
+    /// The filename of the executable without parentheses.
+    pub comm: String,
+
+    /// The current process state, represented by a char.
+    pub state: char,
+
+    /// The parent process PID.
+    pub ppid: u32,
+
+    /// Kernel thread
+    pub is_kernel_thread: bool,
+
+    /// The amount of time this process has been scheduled in user mode in clock
+    /// ticks.
+    pub utime: u64,
+
+    /// The amount of time this process has been scheduled in kernel mode in
+    /// clock ticks.
+    pub stime: u64,
+
+    /// The resident set size, or the number of pages the process has in real
+    /// memory.
+    rss: u64,
+
+    /// The virtual memory size in bytes.
+    pub vsize: u64,
+
+    /// The start time of the process, represented in clock ticks.
+    pub start_time: u64,
+
+    /// The kernel scheduling priority.
+    pub priority: i32,
+
+    /// The nice value (user-settable scheduling hint).
+    #[cfg(unix)]
+    pub nice: i32,
+}
+
+pub fn file_get_stat(file_path: String, buf: &mut [u8; 512]) -> Option<ProcessStat> {
     let mut f = File::open(file_path).ok()?;
 
     let n = f.read(&mut buf[..]).ok()?;
     let content = str::from_utf8(&buf[..n]).ok()?;
 
-    // content = "/proc/{pid}/stat": pid (comm) state ppid ...
-    let after_comm = content.rsplit(')').next()?; // read content after ")"
-    let mut fields = after_comm.split_whitespace();
-    fields.next(); // skip state
+    let (comm, fields) = {
+        let start_paren = content.find('(').ok_or("start paren missing").ok()?;
+        let end_paren = content.find(')').ok_or("end paren missing").ok()?;
+
+        (
+            content[start_paren + 1..end_paren].to_string(),
+            &content[end_paren + 2..],
+        )
+    };
+    let mut fields = fields.split_whitespace();
+
+    let state = fields.next()?.chars().next().ok_or("missing state").ok()?;
     let ppid = fields.next()?.parse().ok()?;
 
+    // Skip: pgrp, session, tty_nr, tpgid
     let mut fields = fields.skip(4);
-    let flags: u32 = fields.next()?.parse().ok()?;
 
-    Some((ppid, flags))
+    let flags: u32 = fields.next()?.parse().ok()?;
+    let is_kernel = is_kernel_thread(flags);
+
+    let mut fields = fields.skip(4);
+
+    let utime: u64 = fields.next()?.parse().ok()?;
+    let stime: u64 = fields.next()?.parse().ok()?;
+    let _cutime: i32 = fields.next()?.parse().ok()?;
+    let _cstime: i32 = fields.next()?.parse().ok()?;
+    let priority: i32 = fields.next()?.parse().ok()?;
+    let nice: i32 = fields.next()?.parse().ok()?;
+    let _num_threads: i32 = fields.next()?.parse().ok()?;
+    let _itrealvalue: i32 = fields.next()?.parse().ok()?;
+    let start_time: u64 = fields.next()?.parse().ok()?;
+    let vsize: u64 = fields.next()?.parse().ok()?;
+    let rss: u64 = fields.next()?.parse().ok()?;
+
+    Some(ProcessStat {
+        comm,
+        state,
+        ppid,
+        is_kernel_thread: is_kernel,
+        utime,
+        stime,
+        rss,
+        vsize,
+        start_time,
+        priority,
+        nice,
+    })
 }
 
-pub fn is_kernel_thread(flags: u32) -> bool {
+fn is_kernel_thread(flags: u32) -> bool {
     const PF_KTHREAD: u32 = 0x00200000;
     flags & PF_KTHREAD != 0
 }
