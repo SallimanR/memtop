@@ -2,7 +2,7 @@ use std::{
     io::Stdout,
     sync::{
         Arc,
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         mpsc::{self, Sender},
     },
     thread::{self, JoinHandle},
@@ -46,7 +46,12 @@ pub fn start_event_loop(
     let (sender, receiver) = mpsc::channel::<UpdateInfo>();
 
     let update_period_ms_thread = update_period_ms.clone();
-    let _update_info_thread = crate_update_info_thread(sender, update_period_ms_thread);
+    let _update_info_thread = crate_update_info_thread(
+        sender,
+        update_period_ms_thread,
+        app.panes.processes_tree_mode.clone(),
+        app.panes.processes_toggle_threads.clone(),
+    );
 
     let mut should_quit = false;
     let mut needs_redraw = true;
@@ -69,12 +74,12 @@ pub fn start_event_loop(
                 }
             }
 
-            needs_redraw = true
+            needs_redraw = true;
         }
 
         if needs_redraw {
             terminal.draw(|frame| tui::ui::render(&mut app, frame))?;
-            needs_redraw = false
+            needs_redraw = false;
         }
     }
 
@@ -128,19 +133,34 @@ fn handle_input(key: KeyEvent, app: &mut App, update_period_ms: &Arc<AtomicU64>)
                     !app.panes.system_usage_pane.needs_update;
                 needs_redraw = true;
             }
-            KeyCode::Char('c') => {
+            KeyCode::Char('t') => {
                 match app.panes.processes {
                     ProcessListOrTree::List(_) => {
                         let mut p = ProcessTreePane::new();
-                        p.process_tree.items.update();
+                        p.process_tree
+                            .items
+                            .update(app.panes.processes_toggle_threads.load(Ordering::Relaxed));
                         app.panes.processes = ProcessListOrTree::Tree(p);
                     }
                     ProcessListOrTree::Tree(_) => {
                         let mut p = ProcessListPane::new();
-                        p.update();
+                        p.process_list
+                            .items
+                            .update(app.panes.processes_toggle_threads.load(Ordering::Relaxed));
                         app.panes.processes = ProcessListOrTree::List(p);
                     }
                 }
+                app.panes.processes_tree_mode.store(
+                    !app.panes.processes_tree_mode.load(Ordering::Relaxed),
+                    Ordering::Relaxed,
+                );
+                needs_redraw = true;
+            }
+            KeyCode::Char('c') => {
+                app.panes.processes_toggle_threads.store(
+                    !app.panes.processes_toggle_threads.load(Ordering::Relaxed),
+                    Ordering::Relaxed,
+                );
                 needs_redraw = true;
             }
             KeyCode::Char('j') | KeyCode::Down => {
@@ -184,14 +204,19 @@ fn handle_input(key: KeyEvent, app: &mut App, update_period_ms: &Arc<AtomicU64>)
 fn crate_update_info_thread(
     sender: Sender<UpdateInfo>,
     update_period_ms: Arc<AtomicU64>,
+    toggle_tree_mode: Arc<AtomicBool>,
+    toggle_threads: Arc<AtomicBool>,
 ) -> JoinHandle<()> {
     thread::spawn(move || {
         let mut system = sysinfo::System::new_all();
         loop {
-            let mut process_list = ProcessList::new();
-            process_list.update();
             let mut process_tree = ProcessTree::new();
-            process_tree.update();
+            let mut process_list = ProcessList::new();
+            if toggle_tree_mode.load(Ordering::Relaxed) {
+                process_tree.update(toggle_threads.load(Ordering::Relaxed));
+            } else {
+                process_list.update(toggle_threads.load(Ordering::Relaxed));
+            }
             let result = UpdateInfo {
                 system_usage_info: SystemUsage::update(&mut system),
                 process_list,

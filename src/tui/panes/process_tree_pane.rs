@@ -5,7 +5,10 @@ use ratatui::{
 };
 
 use crate::{
-    info::linux::process::process_tree::{ProcessTree, TreeNode},
+    info::linux::process::{
+        ProcessType,
+        process_tree::{ProcessTree, TreeNode},
+    },
     tui::{panes::Pane, widgets::selectable_table::SelectableTableWidget},
 };
 
@@ -38,9 +41,16 @@ fn flatten_tree(nodes: &[TreeNode], root_indices: &[usize]) -> Vec<Row<'static>>
 
         let node = &nodes[idx];
         let display_name = format!("{}├─ {}", indent, node.data.name);
+
+        let name_color = match node.data.process_type {
+            ProcessType::Regular => Color::White,
+            ProcessType::Kernel => Color::Green,
+            ProcessType::Thread => Color::Blue,
+        };
+
         rows.push(Row::new(vec![
             Cell::from(node.data.pid.to_string()),
-            Cell::from(display_name),
+            Cell::from(display_name).style(name_color),
         ]));
         for &child in &node.children {
             recurse(nodes, child, depth + 1, rows);

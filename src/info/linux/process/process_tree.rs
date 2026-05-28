@@ -1,6 +1,6 @@
 use std::{collections::HashMap, ops::Deref};
 
-use crate::info::linux::process;
+use crate::info::linux::process::{self, ProcessType, is_kernel_thread};
 
 #[derive(Debug, Default)]
 pub struct ProcessData {
@@ -9,6 +9,8 @@ pub struct ProcessData {
     pub tgid: u32,
 
     pub name: String,
+
+    pub process_type: ProcessType,
 }
 
 #[derive(Debug, Default)]
@@ -32,11 +34,11 @@ impl ProcessTree {
         Self(Vec::new())
     }
 
-    pub fn update(&mut self) -> Option<()> {
-        self.build_process_tree()
+    pub fn update(&mut self, toggle_threads: bool) -> Option<()> {
+        self.build_process_tree(toggle_threads)
     }
 
-    fn build_process_tree(&mut self) -> Option<()> {
+    fn build_process_tree(&mut self, toggle_threads: bool) -> Option<()> {
         #[cfg(feature = "profile-with-tracy")]
         let _span = tracy_client::span!("ProcessList::build_process_tree");
 
@@ -48,18 +50,41 @@ impl ProcessTree {
         let pids = process::get_pids_of_all_processes()?;
 
         for pid in pids {
-            let ppid = process::proc_get_ppid(pid, &mut buf)?;
+            let (ppid, flags) = process::proc_get_ppid_and_flags(pid, &mut buf)?;
+            let name = process::proc_get_name(pid);
             let tgid = process::proc_get_tgid(pid, &mut buf)?;
-            let name = process::proc_get_name_by_pid(pid);
 
+            let is_kernel = is_kernel_thread(flags);
+            let process_type = match is_kernel {
+                true => ProcessType::Kernel,
+                false => ProcessType::Regular,
+            };
             let process = ProcessData {
                 pid,
                 ppid,
                 tgid,
                 name,
+                process_type,
             };
-
             procs.push(process);
+
+            if !toggle_threads {
+                continue;
+            }
+
+            let threads_ids = process::proc_get_threads_ids(pid)?.skip(1);
+            for thread_id in threads_ids {
+                let name = process::thread_get_name(pid, thread_id);
+
+                let process = ProcessData {
+                    pid: thread_id,
+                    ppid,
+                    tgid,
+                    process_type: ProcessType::Thread,
+                    name,
+                };
+                procs.push(process);
+            }
         }
         debug_assert!(!procs.is_empty());
 
@@ -123,7 +148,7 @@ mod tests {
     #[test]
     fn test_build_process_tree() {
         let mut process_tree = ProcessTree::new();
-        assert_eq!(process_tree.update(), None);
+        assert_eq!(process_tree.update(true), None);
         assert!(!process_tree.0.is_empty());
         let root_indices: Vec<usize> = process_tree
             .iter()

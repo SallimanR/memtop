@@ -2,6 +2,8 @@ pub mod process_list_pane;
 pub mod process_tree_pane;
 pub mod system_usage_pane;
 
+use std::sync::{Arc, atomic::AtomicBool};
+
 use ratatui::{Frame, layout::Rect};
 
 use crate::tui::panes::{
@@ -12,6 +14,9 @@ use crate::tui::panes::{
 #[derive(Debug, Default)]
 pub struct Panes {
     pub processes: ProcessListOrTree,
+    pub processes_tree_mode: Arc<AtomicBool>,
+    pub processes_toggle_threads: Arc<AtomicBool>,
+
     pub system_usage_pane: SystemUsagePane,
 }
 
@@ -19,6 +24,9 @@ impl Panes {
     pub fn new() -> Self {
         Self {
             processes: ProcessListOrTree::default(),
+            processes_tree_mode: Arc::new(AtomicBool::new(false)),
+            processes_toggle_threads: Arc::new(AtomicBool::new(false)),
+
             system_usage_pane: SystemUsagePane {
                 needs_update: true,
                 ..Default::default()

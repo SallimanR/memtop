@@ -21,6 +21,14 @@ pub struct ProcessFullInfo {
     pub rss: u64,
 }
 
+#[derive(Debug, Default)]
+pub enum ProcessType {
+    #[default]
+    Regular,
+    Kernel,
+    Thread,
+}
+
 pub fn get_pids_of_all_processes()
 -> Option<FilterMap<Flatten<ReadDir>, impl FnMut(DirEntry) -> Option<u32>>> {
     let files = fs::read_dir("/proc").ok()?;
@@ -31,8 +39,53 @@ pub fn get_pids_of_all_processes()
     }))
 }
 
-pub fn proc_get_ppid(pid: u32, buf: &mut [u8; 512]) -> Option<u32> {
-    let mut f = File::open(format!("/proc/{}/stat", pid)).ok()?;
+pub fn proc_get_threads_ids(
+    pid: u32,
+) -> Option<FilterMap<Flatten<ReadDir>, impl FnMut(DirEntry) -> Option<u32>>> {
+    let files = fs::read_dir(format!("/proc/{}/task", pid)).ok()?;
+    Some(files.flatten().filter_map(|entry| {
+        let name = entry.file_name();
+        let s = name.to_str()?;
+        s.parse::<u32>().ok()
+    }))
+}
+
+pub fn proc_get_ppid_and_flags(pid: u32, buf: &mut [u8; 512]) -> Option<(u32, u32)> {
+    let file_path = format!("/proc/{}/stat", pid);
+    file_get_ppid_and_flags(file_path, buf)
+}
+
+pub fn thread_get_ppid_and_flags(
+    pid: u32,
+    thread_id: u32,
+    buf: &mut [u8; 512],
+) -> Option<(u32, u32)> {
+    let file_path = format!("/proc/{}/task/{}/stat", pid, thread_id);
+    file_get_ppid_and_flags(file_path, buf)
+}
+
+pub fn proc_get_tgid(pid: u32, buf: &mut [u8; 512]) -> Option<u32> {
+    let file_path = format!("/proc/{}/status", pid);
+    file_get_tgid(file_path, buf)
+}
+
+pub fn thread_get_tgid(pid: u32, thread_id: u32, buf: &mut [u8; 512]) -> Option<u32> {
+    let file_path = format!("/proc/{}/task/{}/status", pid, thread_id);
+    file_get_tgid(file_path, buf)
+}
+
+pub fn proc_get_name(pid: u32) -> String {
+    let file_path = format!("/proc/{}/comm", pid);
+    file_get_name(file_path)
+}
+
+pub fn thread_get_name(pid: u32, thread_id: u32) -> String {
+    let file_path = format!("/proc/{}/task/{}/comm", pid, thread_id);
+    file_get_name(file_path)
+}
+
+pub fn file_get_ppid_and_flags(file_path: String, buf: &mut [u8; 512]) -> Option<(u32, u32)> {
+    let mut f = File::open(file_path).ok()?;
 
     let n = f.read(&mut buf[..]).ok()?;
     let content = str::from_utf8(&buf[..n]).ok()?;
@@ -41,12 +94,21 @@ pub fn proc_get_ppid(pid: u32, buf: &mut [u8; 512]) -> Option<u32> {
     let after_comm = content.rsplit(')').next()?; // read content after ")"
     let mut fields = after_comm.split_whitespace();
     fields.next(); // skip state
-    let ppid_str = fields.next()?;
-    ppid_str.parse().ok()
+    let ppid = fields.next()?.parse().ok()?;
+
+    let mut fields = fields.skip(4);
+    let flags: u32 = fields.next()?.parse().ok()?;
+
+    Some((ppid, flags))
 }
 
-pub fn proc_get_tgid(pid: u32, buf: &mut [u8; 512]) -> Option<u32> {
-    let mut f = File::open(format!("/proc/{}/status", pid)).ok()?;
+pub fn is_kernel_thread(flags: u32) -> bool {
+    const PF_KTHREAD: u32 = 0x00200000;
+    flags & PF_KTHREAD != 0
+}
+
+pub fn file_get_tgid(file_path: String, buf: &mut [u8; 512]) -> Option<u32> {
+    let mut f = File::open(file_path).ok()?;
 
     let n = f.read(&mut buf[..]).ok()?;
     let content = str::from_utf8(&buf[..n]).ok()?;
@@ -59,20 +121,20 @@ pub fn proc_get_tgid(pid: u32, buf: &mut [u8; 512]) -> Option<u32> {
     None
 }
 
-pub fn proc_get_name_by_pid(pid: u32) -> String {
+fn file_get_name(file_path: String) -> String {
     #[cfg(feature = "profile-with-tracy")]
-    let _span = tracy_client::span!("Process::get_name_by_pid");
+    let _span = tracy_client::span!("process::file_get_name");
 
-    let content = fs::read_to_string(format!("/proc/{}/comm", pid));
+    let content = fs::read_to_string(file_path);
     match content {
         Ok(info) => info,
         Err(_) => "".to_owned(),
     }
 }
 
-pub fn proc_get_smaps_rollup_by_pid(pid: u32, buf: &mut [u8]) -> (Option<u64>, Option<u64>) {
+pub fn proc_get_smaps_rollup(pid: u32, buf: &mut [u8]) -> (Option<u64>, Option<u64>) {
     #[cfg(feature = "profile-with-tracy")]
-    let _span = tracy_client::span!("Process::get_smaps_rollup_by_pid_buf");
+    let _span = tracy_client::span!("Process::get_smaps_rollup");
 
     let path = format!("/proc/{}/smaps_rollup", pid);
     let mut file = match File::open(&path) {

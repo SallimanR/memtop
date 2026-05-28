@@ -25,9 +25,6 @@ impl ProcessListPane {
             process_list: SelectableTableWidget::new(ProcessList::new()),
         }
     }
-    pub fn update(&mut self) {
-        self.process_list.items.update();
-    }
 }
 
 impl Pane for ProcessListPane {
