@@ -208,7 +208,7 @@ fn crate_update_info_thread(
     toggle_threads: Arc<AtomicBool>,
 ) -> JoinHandle<()> {
     thread::spawn(move || {
-        let mut system = sysinfo::System::new_all();
+        let mut system = sysinfo::System::new();
         loop {
             let mut process_tree = ProcessTree::new();
             let mut process_list = ProcessList::new();
