@@ -65,11 +65,6 @@ pub fn proc_get_tgid(pid: u32, buf: &mut [u8; 512]) -> Option<u32> {
     file_get_tgid(file_path, buf)
 }
 
-pub fn thread_get_tgid(pid: u32, thread_id: u32, buf: &mut [u8; 512]) -> Option<u32> {
-    let file_path = format!("/proc/{}/task/{}/status", pid, thread_id);
-    file_get_tgid(file_path, buf)
-}
-
 pub fn proc_get_name(pid: u32) -> String {
     let file_path = format!("/proc/{}/comm", pid);
     file_get_name(file_path)
