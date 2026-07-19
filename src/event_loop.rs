@@ -46,7 +46,7 @@ pub fn start_event_loop(
     let (sender, receiver) = mpsc::channel::<UpdateInfo>();
 
     let update_period_ms_thread = update_period_ms.clone();
-    let _update_info_thread = crate_update_info_thread(
+    let _update_info_thread = create_update_info_thread(
         sender,
         update_period_ms_thread,
         app.panes.processes_tree_mode.clone(),
@@ -201,7 +201,7 @@ fn handle_input(key: KeyEvent, app: &mut App, update_period_ms: &Arc<AtomicU64>)
     (needs_redraw, should_quit)
 }
 
-fn crate_update_info_thread(
+fn create_update_info_thread(
     sender: Sender<UpdateInfo>,
     update_period_ms: Arc<AtomicU64>,
     toggle_tree_mode: Arc<AtomicBool>,
