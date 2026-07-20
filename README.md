@@ -3,7 +3,7 @@
 
 ## Process tree mode
 <p align="center">
-  <img src="./assets/process-tree.png" alt="Process tree" width="600">
+  <img src="./assets/process-tree.png" alt="Process tree" width="1000">
 </p>
 
 ## Developing
