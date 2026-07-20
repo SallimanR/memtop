@@ -5,9 +5,10 @@
 <p align="center">
   <img src="./assets/process-tree.png" alt="Process tree" width="1000">
 </p>
-<span style="color:gray">White</span> ones are user space processes  
-   <span style="color:dodgerblue">└ Blue</span> ones are process' threads  
-<span style="color:green">Green</span> ones are kernel threads
+
+![white](https://img.shields.io/badge/White-gray) ones are user space processes  
+ └ ![blue](https://img.shields.io/badge/Blue-blue) ones are process' threads  
+![green](https://img.shields.io/badge/Green-green) ones are kernel threads
 
 ## Developing
 
