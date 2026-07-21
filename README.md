@@ -22,5 +22,23 @@ build in release mode:
 cargo build --release
 ```
 
+profiling with Tracy
+1. build with profile feature flag:
+```sh
+cargo build --profile dev
+```
+2. run
+```sh
+./target/release-profile/memtop
+```
+
+3. build tracy profiler with specific version (13.1)
+4. run tracy -> connect to running `memtop`
+
+<img src="./assets/profiling-tracy.png" alt="Profiling with tracy" width="1000">
+
+View statistics of usage
+<img src="./assets/profiling-tracy-statistics.png" width="800">
+
 ## Architecture:
 `memtop` uses a ratatui library for TUI interface
