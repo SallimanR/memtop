@@ -23,9 +23,9 @@ pub struct Panes {
 impl Panes {
     pub fn new() -> Self {
         Self {
-            processes: ProcessListOrTree::default(),
-            processes_tree_mode: Arc::new(AtomicBool::new(false)),
-            processes_toggle_threads: Arc::new(AtomicBool::new(false)),
+            processes: ProcessListOrTree::Tree(ProcessTreePane::default()),
+            processes_tree_mode: Arc::new(AtomicBool::new(true)),
+            processes_toggle_threads: Arc::new(AtomicBool::new(true)),
 
             system_usage_pane: SystemUsagePane {
                 needs_update: true,
