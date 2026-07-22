@@ -51,6 +51,8 @@ fn flatten_tree(nodes: &[TreeNode], root_indices: &[usize]) -> Vec<Row<'static>>
         rows.push(Row::new(vec![
             Cell::from(node.data.pid.to_string()),
             Cell::from(display_name).style(name_color),
+            Cell::from(node.data.rss.to_string()),
+            Cell::from(node.data.pss.to_string()),
         ]));
         for &child in &node.children {
             recurse(nodes, child, depth + 1, rows);
@@ -80,11 +82,12 @@ impl Pane for ProcessTreePane {
 
         let rows = flatten_tree(&self.process_tree.items, &root_indices);
 
-        let header = Row::new(["PID", "name", "Rss"]).style(Style::new().bold());
+        let header = Row::new(["PID", "name", "Rss", "Pss"]).style(Style::new().bold());
 
         let widths = [
             Constraint::Percentage(10),
-            Constraint::Percentage(40),
+            Constraint::Percentage(50),
+            Constraint::Percentage(20),
             Constraint::Percentage(20),
         ];
 

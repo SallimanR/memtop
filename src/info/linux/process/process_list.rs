@@ -45,13 +45,13 @@ impl ProcessList {
             let threads_ids = process::proc_get_threads_ids(pid)?;
             for thread_id in threads_ids {
                 let name = process::thread_get_name(pid, thread_id);
-                // let (rss, pss) = process::proc_get_smaps_rollup_by_pid(thread_id, &mut buf);
+                let (rss, pss) = process::proc_get_smaps_rollup(thread_id, &mut buf);
 
                 let process = ProcessInfoLine {
                     pid: thread_id,
                     name,
-                    ..Default::default() // rss: rss.unwrap_or_default(),
-                                         // pss: pss.unwrap_or_default(),
+                    rss: rss.unwrap_or_default(),
+                    pss: pss.unwrap_or_default(),
                 };
                 self.0.push(process);
 

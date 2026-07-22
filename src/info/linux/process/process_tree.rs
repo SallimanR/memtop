@@ -8,6 +8,9 @@ pub struct ProcessData {
     pub ppid: u32,
     pub tgid: u32,
 
+    pub pss: u64,
+    pub rss: u64,
+
     pub name: String,
 
     pub process_type: ProcessType,
@@ -57,12 +60,17 @@ impl ProcessTree {
                 true => ProcessType::Kernel,
                 false => ProcessType::Regular,
             };
+            let (rss, pss) = process::proc_get_smaps_rollup(pid, &mut buf);
+            let rss = rss.unwrap_or_default();
+            let pss = pss.unwrap_or_default();
             let process = ProcessData {
                 pid,
                 ppid: proc_stat.ppid,
                 tgid,
                 name: proc_stat.comm,
                 process_type,
+                rss,
+                pss,
             };
             procs.push(process);
 
@@ -80,6 +88,8 @@ impl ProcessTree {
                     tgid,
                     process_type: ProcessType::Thread,
                     name,
+                    rss,
+                    pss,
                 };
                 procs.push(process);
             }
